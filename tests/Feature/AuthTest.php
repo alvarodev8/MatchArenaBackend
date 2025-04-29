@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -107,5 +109,35 @@ class AuthTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJson(['message' => 'Sesión cerrada con éxito']);
+    }
+
+    public function test_forgot_password_sends_reset_link()
+    {
+
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'email' => 'test@example.com',
+        ]);
+
+        $response = $this->postJson('/api/forgot-password', [
+            'email' => 'test@example.com',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Enlace de recuperación enviado al correo']);
+
+        Notification::assertSentTo($user, ResetPassword::class);
+
+    }
+
+    public function test_forgot_password_fails_with_invalid_email()
+    {
+        $response = $this->postJson('/api/forgot-password', [
+            'email' => 'invalid-email',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors']);
     }
 }
