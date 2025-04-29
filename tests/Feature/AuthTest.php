@@ -6,7 +6,9 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class AuthTest extends TestCase
@@ -162,5 +164,43 @@ class AuthTest extends TestCase
         $response = $this->getJson('/api/user');
 
         $response->assertStatus(401);
+    }
+
+    public function test_reset_password_changes_password()
+    {
+        $user = User::factory()->create([
+            'email' => 'test@example.com',
+        ]);
+
+        $token = Password::broker()->createToken($user);
+
+        $response = $this->postJson('/api/reset-password', [
+            'token' => $token,
+            'email' => 'test@example.com',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson(['message' => 'Contraseña restablecida con éxito']);
+
+        $this->assertTrue(Hash::check('newpassword123', $user->fresh()->password));
+    }
+
+    public function test_reset_password_fails_with_invalid_token()
+    {
+        $user = User::factory()->create([
+            'email' => 'test@example.com',
+        ]);
+
+        $response = $this->postJson('/api/reset-password', [
+            'token' => 'invalid-token',
+            'email' => 'test@example.com',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJson(['message' => 'No se pudo restablecer la contraseña']);
     }
 }
