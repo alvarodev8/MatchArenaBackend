@@ -19,8 +19,10 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['player', 'establishment', 'admin'])->default('player')->index();
             $table->rememberToken();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
