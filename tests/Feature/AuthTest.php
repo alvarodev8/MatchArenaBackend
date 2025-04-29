@@ -63,4 +63,36 @@ class AuthTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
+
+    public function test_user_can_login()
+    {
+        $user = User::factory()->create([
+            'email' => 'test@example.com',
+            'password' => bcrypt('password123'),
+            'role' => 'player',
+        ]);
+
+        $response = $this->postJson('/api/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'message',
+                'user' => ['id', 'name', 'email', 'role'],
+                'token',
+            ]);
+    }
+
+    public function test_login_fails_with_invalid_credentials()
+    {
+        $response = $this->postJson('/api/login', [
+            'email' => 'test@example.com',
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJson(['message' => 'Credenciales inválidas']);
+    }
 }
