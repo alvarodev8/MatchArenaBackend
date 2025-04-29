@@ -176,4 +176,56 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function forgotPassword(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|string|email',
+            ]);
+
+            $status = Password::sendResetLink($validated);
+
+            if ($status === Password::RESET_LINK_SENT) {
+                Log::info('Enlace de recuperación enviado', [
+                    'email' => $validated['email'],
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Enlace de recuperación enviado al correo',
+                ], 200);
+            }
+
+            Log::warning('Error al enviar enlace de recuperación', [
+                'email' => $validated['email'],
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'No se pudo enviar el enlace de recuperación',
+            ], 400);
+        } catch (ValidationException $e) {
+            Log::warning('Error de validación en recuperación de contraseña', [
+                'email' => $request->email,
+                'errors' => $e->errors(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en recuperación de contraseña', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+            ], 500);
+        }
+    }
 }
