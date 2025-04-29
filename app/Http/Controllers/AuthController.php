@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -225,6 +227,69 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
+            ], 500);
+        }
+    }
+
+    public function resetPassword(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'token' => 'required|string',
+                'email' => 'required|string|email',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            $status = Password::reset(
+                $request->only('email', 'password', 'password_confirmation', 'token'),
+                function ($user, $password) {
+                    $user->forceFill([
+                        'password' => Hash::make($password),
+                        'remember_token' => Str::random(60),
+                    ])->save();
+
+                    event(new PasswordReset($user));
+                }
+            );
+
+            if ($status === Password::PASSWORD_RESET) {
+                Log::info('Contraseña restablecida con éxito', [
+                    'email' => $validated['email'],
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json([
+                    'message' => 'Contraseña restablecida con éxito',
+                ], 200);
+            }
+
+            Log::warning('Error al restablecer la contraseña', [
+                'email' => $validated['email'],
+                'status' => $status,
+                'ip' => $request->ip(),
+            ]);
+            return response()->json([
+                'message' => 'No se pudo restablecer la contraseña',
+            ], 400);
+        } catch (ValidationException $e) {
+            Log::warning('Error de validación en restablecimiento de contraseña', [
+                'email' => $request->email,
+                'errors' => $e->errors(),
+                'ip' => $request->ip(),
+            ]);
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en restablecimiento de contraseña', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'ip' => $request->ip(),
+            ]);
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
