@@ -27,3 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'getUser']);
 });
+
+Route::get('/reset-password/{token}', function () {
+    return response()->json(['message' => 'Futura ruta para el restablecimiento de contraseña']);
+})->name('password.reset');
