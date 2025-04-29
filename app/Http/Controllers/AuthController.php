@@ -123,4 +123,31 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function logout(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $user->currentAccessToken()->delete();
+
+            Log::info('Usuario deslogueado con éxito', [
+                'email' => $user->email,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Sesión cerrada con éxito',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al cerrar sesión', [
+                'email' => $request->user()->email,
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error al cerrar sesión',
+            ], 500);
+        }
+    }
 }
