@@ -140,4 +140,27 @@ class AuthTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonStructure(['message', 'errors']);
     }
+
+    public function test_user_can_get_own_data()
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+        ])->getJson('/api/user');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'message',
+                'user' => ['id', 'name', 'email', 'role'],
+            ]);
+    }
+
+    public function test_get_user_fails_without_authentication()
+    {
+        $response = $this->getJson('/api/user');
+
+        $response->assertStatus(401);
+    }
 }
