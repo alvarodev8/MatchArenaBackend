@@ -150,4 +150,30 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function getUser(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            Log::info('Información del usuario obtenida', [
+                'email' => $user->email,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Usuario obtenido con éxito',
+                'user' => $user,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener usuario', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error al obtener el usuario',
+            ], 500);
+        }
+    }
 }
