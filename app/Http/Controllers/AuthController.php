@@ -65,4 +65,62 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function login(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|string|email',
+                'password' => 'required|string',
+            ]);
+
+            if (!Auth::attempt($validated)) {
+                Log::warning('Intento de login fallido', [
+                    'email' => $validated['email'],
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Credenciales inválidas',
+                ], 401);
+            }
+
+            $user = Auth::user();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            Log::info('Usuario logueado con éxito', [
+                'email' => $user->email,
+                'role' => $user->role,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Inicio de sesión exitoso',
+                'user' => $user,
+                'token' => $token,
+            ], 200);
+        } catch (ValidationException $e) {
+            Log::warning('Error de validación en login', [
+                'email' => $request->email,
+                'errors' => $e->errors(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en login', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Error al iniciar sesión',
+            ], 500);
+        }
+    }
 }
