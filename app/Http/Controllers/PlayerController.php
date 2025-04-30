@@ -41,17 +41,4 @@ class PlayerController extends Controller
 
         return response()->json($fixtures);
     }
-
-    public function pitches(Request $request)
-    {
-        $pitches = Pitch::all()->map(function ($pitch) {
-            return [
-                'id' => $pitch->id,
-                'name' => $pitch->name,
-                'location' => $pitch->location,
-            ];
-        });
-
-        return response()->json($pitches);
-    }
 }
