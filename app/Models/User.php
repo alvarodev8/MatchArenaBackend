@@ -47,6 +47,16 @@ class User extends Authenticatable
 
     protected $dates = ['deleted_at'];
 
+    public function fixtures()
+    {
+        return $this->hasMany(Fixture::class, 'player_id');
+    }
+
+    public function pitches()
+    {
+        return $this->hasMany(Pitch::class, 'establishment_id');
+    }
+
     /**
      * Send the password reset notification.
      *
