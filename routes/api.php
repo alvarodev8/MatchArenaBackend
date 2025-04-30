@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PitchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,8 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::get('/profile', [PlayerController::class, 'profile'])->middleware('role:player');
     Route::get('/fixtures', [PlayerController::class, 'fixtures'])->middleware('role:player');
-    Route::get('/player/pitches', [PlayerController::class, 'pitches'])->middleware('role:player');
-    Route::get('/establishment/pitches', [EstablishmentController::class, 'pitches'])->middleware('role:establishment');
+    Route::get('/pitches', [PitchController::class, 'index'])->middleware('role:player,establishment');
     Route::get('/users', [AdminController::class, 'users'])->middleware('role:admin');
 });
 
