@@ -7,6 +7,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -290,6 +291,57 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Error al procesar la solicitud',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function validateResetToken(Request $request, $token)
+    {
+        try {
+            $resetToken = DB::table('password_reset_tokens')
+                ->where('token', $token)
+                ->first();
+
+            if (!$resetToken) {
+                Log::warning('Token de restablecimiento inválido', [
+                    'token' => $token,
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json([
+                    'message' => 'Token inválido o expirado',
+                ], 400);
+            }
+
+            $createdAt = \Carbon\Carbon::parse($resetToken->created_at);
+            $expirationMinutes = config('auth.passwords.users.expire', 60);
+            if ($createdAt->diffInMinutes(now()) > $expirationMinutes) {
+                Log::warning('Token de restablecimiento expirado', [
+                    'token' => $token,
+                    'email' => $resetToken->email,
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json([
+                    'message' => 'Token expirado',
+                ], 400);
+            }
+
+            Log::info('Token de restablecimiento válido', [
+                'token' => $token,
+                'email' => $resetToken->email,
+                'ip' => $request->ip(),
+            ]);
+            return response()->json([
+                'email' => $resetToken->email,
+                'token' => $token,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al validar el token de restablecimiento', [
+                'token' => $token,
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
+            return response()->json([
+                'message' => 'Error al procesar la solicitud',
             ], 500);
         }
     }
