@@ -32,7 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'getUser']);
     Route::get('/profile', [PlayerController::class, 'profile'])->middleware('role:player');
-    Route::get('/fixtures', [PlayerController::class, 'fixtures'])->middleware('role:player');
+    Route::get('/reservations', [PlayerController::class, 'reservations'])->middleware('role:player');
     Route::get('/pitches', [PitchController::class, 'index'])->middleware('role:player,establishment');
     Route::get('/users', [AdminController::class, 'users'])->middleware('role:admin');
 });

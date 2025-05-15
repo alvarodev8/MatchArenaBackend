@@ -5,11 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Fixture extends Model
+class Reservation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['player_id', 'pitch_id', 'date', 'opponent'];
+    protected $fillable = [
+        'player_id', 'pitch_id', 'start_at', 'status', 'duration', 'price',
+        'payment_status', 'payment_method', 'cancellation_reason', 'cancellation_date'
+    ];
 
     protected $casts = [
         'date' => 'datetime',

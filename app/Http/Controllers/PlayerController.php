@@ -4,8 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Pitch;
-use App\Models\Fixture;
+use App\Models\Reservation;
 
 class PlayerController extends Controller
 {
@@ -20,25 +19,26 @@ class PlayerController extends Controller
         ]);
     }
 
-    public function fixtures(Request $request)
+    public function reservations(Request $request)
     {
-        $user = Auth::user();
-        $fixtures = Fixture::where('player_id', $user->id)
+        $reservations = Reservation::where('player_id', auth()->id())
             ->with('pitch')
             ->get()
-            ->map(function ($fixture) {
+            ->map(function ($reservation) {
                 return [
-                    'id' => $fixture->id,
-                    'opponent' => $fixture->opponent,
-                    'date' => $fixture->date,
+                    'id' => $reservation->id,
+                    'start_at' => $reservation->start_at,
+                    'duration' => $reservation->duration,
+                    'cancelled_at' => $reservation->cancelled_at,
+                    'is_cancelled' => $reservation->cancelled_at !== null,
                     'pitch' => [
-                        'id' => $fixture->pitch->id,
-                        'name' => $fixture->pitch->name,
-                        'location' => $fixture->pitch->location,
+                        'id' => $reservation->pitch->id,
+                        'name' => $reservation->pitch->name,
+                        'location' => $reservation->pitch->location,
                     ],
                 ];
             });
 
-        return response()->json($fixtures);
+        return response()->json($reservations);
     }
 }
