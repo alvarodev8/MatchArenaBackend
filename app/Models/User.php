@@ -47,9 +47,9 @@ class User extends Authenticatable
 
     protected $dates = ['deleted_at'];
 
-    public function fixtures()
+    public function reservations()
     {
-        return $this->hasMany(Fixture::class, 'player_id');
+        return $this->hasMany(Reservation::class, 'player_id');
     }
 
     public function pitches()
