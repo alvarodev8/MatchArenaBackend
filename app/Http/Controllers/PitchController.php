@@ -12,30 +12,26 @@ class PitchController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role === 'player') {
-            // Para jugadores: devolver todos los pitches disponibles
-            $pitches = Pitch::all()->map(function ($pitch) {
-                return [
-                    'id' => $pitch->id,
-                    'name' => $pitch->name,
-                    'location' => $pitch->location,
-                ];
-            });
-        } elseif ($user->role === 'establishment') {
-            // Para establecimientos: devolver solo los pitches que gestionan
-            $pitches = Pitch::where('establishment_id', $user->id)
-                ->get()
-                ->map(function ($pitch) {
-                    return [
-                        'id' => $pitch->id,
-                        'name' => $pitch->name,
-                        'location' => $pitch->location,
-                    ];
-                });
-        } else {
-            // Si el rol no es player ni establishment, denegar acceso
+        $query = Pitch::query();
+
+        // Filtrar según el rol del usuario
+        if ($user->role === 'establishment') {
+            $query->where('establishment_id', $user->id);
+        } elseif ($user->role !== 'player' && $user->role !== 'establishment') {
             return response()->json(['message' => 'Acceso denegado'], 403);
         }
+
+        $pitches = $query->with('establishment')->get()->map(function ($pitch) {
+            return [
+                'id' => $pitch->id,
+                'name' => $pitch->name,
+                'location' => $pitch->location,
+                'establishment' => [
+                    'id' => $pitch->establishment->id,
+                    'name' => $pitch->establishment->name,
+                ],
+            ];
+        });
 
         return response()->json($pitches);
     }
