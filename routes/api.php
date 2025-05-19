@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlayerController;
-use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\PitchController;
 
@@ -31,11 +30,24 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'getUser']);
-    Route::get('/profile', [PlayerController::class, 'profile'])->middleware('role:player');
-    Route::get('/reservations', [PlayerController::class, 'reservations'])->middleware('role:player');
-    Route::post('/pitches', [PlayerController::class, 'createReservation'])->middleware('role:player');
-    Route::get('/pitches', [PitchController::class, 'index'])->middleware('role:player,establishment');
-    Route::get('/users', [AdminController::class, 'users'])->middleware('role:admin');
+
+    // Rutas para jugadores
+    Route::prefix('player')->middleware('role:player')->group(function () {
+        Route::get('/profile', [PlayerController::class, 'profile']);
+        Route::get('/reservations', [PlayerController::class, 'reservations']);
+        Route::post('/reservations', [PlayerController::class, 'createReservation']);
+        Route::get('/pitches', [PitchController::class, 'index']);
+    });
+
+    // Rutas para establecimientos
+    Route::prefix('establishment')->middleware('role:establishment')->group(function () {
+        Route::get('/pitches', [PitchController::class, 'index']);
+    });
+
+    // Rutas para administradores
+    Route::prefix('admin')->middleware('role:admin')->group(function () {
+        Route::get('/users', [AdminController::class, 'users']);
+    });
 });
 
 Route::get('/reset-password/{token}', [AuthController::class, 'validateResetToken'])->name('password.reset');
