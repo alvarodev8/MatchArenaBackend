@@ -36,7 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [PlayerController::class, 'profile']);
         Route::get('/reservations', [PlayerController::class, 'reservations']);
         Route::post('/reservations', [PlayerController::class, 'createReservation']);
-        Route::get('/pitches', [PitchController::class, 'index']);
+        Route::get('/pitches', [PlayerController::class, 'getPitches']);
     });
 
     // Rutas para establecimientos
