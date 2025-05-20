@@ -59,8 +59,8 @@ class ReservationController extends Controller
 
             // Verificar si el horario está disponible
             $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
-                ->where('start_at', '<=', $validated['start_at'])
-                ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$validated['start_at']])
+                ->where('start_at', '<', Carbon::parse($startAt)->addMinutes($validated['duration']))
+                ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt])
                 ->whereNull('cancellation_date')
                 ->first();
 
@@ -144,5 +144,137 @@ class ReservationController extends Controller
                 'details' => 'Por favor, intenta de nuevo más tarde.',
             ], 500);
         }
+    }
+
+    public function checkAvailability(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'pitch_id' => 'required|exists:pitches,id',
+            'start_at' => 'required|date|after:now',
+            'duration' => 'required|integer|min:30|max:120',
+        ]);
+
+        $startAt = Carbon::parse($validated['start_at'])->format('Y-m-d H:i:s');
+        $endAt = Carbon::parse($startAt)->addMinutes($validated['duration']);
+
+        $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
+            ->where(function ($query) use ($startAt, $endAt) {
+                $query->where('start_at', '<', $endAt)
+                      ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
+            })
+            ->whereNull('cancellation_date')
+            ->first();
+
+        if ($existingReservation) {
+            $conflictStart = Carbon::parse($existingReservation->start_at)->format('d/m/Y H:i');
+            $conflictEnd = Carbon::parse($existingReservation->start_at)
+                ->addMinutes($existingReservation->duration)
+                ->format('d/m/Y H:i');
+            return response()->json([
+                'available' => false,
+                'message' => "El campo está ocupado desde $conflictStart hasta $conflictEnd."
+            ], 200);
+        }
+
+        return response()->json(['available' => true], 200);
+    }
+
+    public function getAvailableTimes(Request $request)
+    {
+        $validated = $request->validate([
+            'pitch_id' => 'required|exists:pitches,id',
+            'date' => 'required|date',
+        ]);
+
+        $date = Carbon::parse($validated['date'])->startOfDay();
+        $availableTimes = [];
+        $allTimes = [];
+        for ($hour = 8; $hour < 22; $hour++) {
+            $allTimes[] = sprintf("%02d:00", $hour);
+            $allTimes[] = sprintf("%02d:30", $hour);
+        }
+
+        $now = Carbon::now();
+        if ($date->isSameDay($now)) {
+            $currentHour = $now->hour;
+            $currentMinute = $now->minute;
+            $nextHalfHour = ceil($currentMinute / 30) * 30;
+            $startHour = $currentHour + ($nextHalfHour === 60 ? 1 : ($nextHalfHour === 0 ? 0 : 1));
+            $allTimes = array_filter($allTimes, function ($time) use ($startHour) {
+                $hour = (int)explode(':', $time)[0];
+                return $hour >= $startHour;
+            });
+        }
+
+        foreach ($allTimes as $time) {
+            $startAt = $date->copy()->setTimeFromTimeString($time);
+            $endAt = $startAt->copy()->addMinutes(30); // intervalos de 30 minutos para verificar
+            $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
+                ->where(function ($query) use ($startAt, $endAt) {
+                    $query->where('start_at', '<', $endAt)
+                          ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
+                })
+                ->whereNull('cancellation_date')
+                ->first();
+
+            if (!$existingReservation) {
+                $availableTimes[] = $time;
+            }
+        }
+
+        return response()->json(['availableTimes' => $availableTimes], 200);
+    }
+
+    public function getAvailableDates(Request $request)
+    {
+        $validated = $request->validate([
+            'pitch_id' => 'required|exists:pitches,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = Carbon::parse($validated['start_date'])->startOfDay();
+        $endDate = Carbon::parse($validated['end_date'])->endOfDay();
+        $now = Carbon::now();
+        $maxEndDate = $now->copy()->addDays(15)->endOfDay();
+
+        if ($endDate > $maxEndDate) {
+            $endDate = $maxEndDate;
+        }
+
+        $dates = [];
+        for ($date = $startDate; $date <= $endDate; $date->addDay()) {
+            $availableTimes = [];
+            $allTimes = [];
+            for ($hour = 8; $hour < 22; $hour++) {
+                $allTimes[] = sprintf("%02d:00", $hour);
+                $allTimes[] = sprintf("%02d:30", $hour);
+            }
+
+            foreach ($allTimes as $time) {
+                $startAt = $date->copy()->setTimeFromTimeString($time);
+                $endAt = $startAt->copy()->addMinutes(30); // intervalos de 30 minutos para verificar
+                $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
+                    ->where(function ($query) use ($startAt, $endAt) {
+                        $query->where('start_at', '<', $endAt)
+                              ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
+                    })
+                    ->whereNull('cancellation_date')
+                    ->first();
+
+                if (!$existingReservation) {
+                    $availableTimes[] = $time;
+                }
+            }
+
+            $dates[] = [
+                'date' => $date->format('Y-m-d'),
+                'available' => !empty($availableTimes)
+            ];
+        }
+
+        return response()->json($dates, 200);
     }
 }
