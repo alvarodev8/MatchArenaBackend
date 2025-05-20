@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\PitchController;
+use App\Http\Controllers\ReservationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reservations', [PlayerController::class, 'reservations']);
         Route::post('/reservations', [PlayerController::class, 'createReservation']);
         Route::get('/pitches', [PlayerController::class, 'getPitches']);
+        Route::post('/reservations/check', [ReservationController::class, 'checkAvailability']);
+        Route::get('/reservations/available-times', [ReservationController::class, 'getAvailableTimes']);
+        Route::get('/reservations/available-dates', [ReservationController::class, 'getAvailableDates']);
     });
 
     // Rutas para establecimientos
