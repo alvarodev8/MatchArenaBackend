@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PlayerController extends Controller
 {
+    use ApiResponser;
+
     protected $reservationController;
     protected $pitchController;
 
@@ -24,12 +27,12 @@ class PlayerController extends Controller
     public function profile(Request $request)
     {
         $user = Auth::user();
-        return response()->json([
+        return $this->successResponse([
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
-        ]);
+        ], 'Perfil obtenido con éxito');
     }
 
     /**

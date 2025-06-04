@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponser;
 use Illuminate\Http\Request;
 use App\Models\User;
 
 class AdminController extends Controller
 {
+    use ApiResponser;
+
     public function users(Request $request)
     {
         $users = User::all()->map(function ($user) {
@@ -18,6 +21,6 @@ class AdminController extends Controller
             ];
         });
 
-        return response()->json($users);
+        return $this->successResponse(['users' => $users], 'Usuarios obtenidos con éxito');
     }
 }
