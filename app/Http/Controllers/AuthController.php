@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponser;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
@@ -11,10 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    use ApiResponser;
+
     public function register(Request $request)
     {
         try {
@@ -40,32 +42,12 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'Usuario registrado con éxito',
+            return $this->successResponse([
                 'user' => $user,
                 'token' => $token,
-            ], 201);
-        } catch (ValidationException $e) {
-            Log::warning('Error de validación en registro', [
-                'email' => $request->email,
-                'errors' => $e->errors(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors(),
-            ], 422);
+            ], 'Usuario registrado con éxito', 201);
         } catch (\Exception $e) {
-            Log::error('Error inesperado en registro', [
-                'email' => $request->email,
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error al registrar el usuario',
-            ], 500);
+            return $this->handleException($e, $request, 'registro');
         }
     }
 
@@ -83,9 +65,7 @@ class AuthController extends Controller
                     'ip' => $request->ip(),
                 ]);
 
-                return response()->json([
-                    'message' => 'Credenciales inválidas',
-                ], 401);
+                return $this->errorResponse('Credenciales inválidas', 401);
             }
 
             $user = Auth::user();
@@ -98,32 +78,12 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'Inicio de sesión exitoso',
+            return $this->successResponse([
                 'user' => $user,
                 'token' => $token,
-            ], 200);
-        } catch (ValidationException $e) {
-            Log::warning('Error de validación en login', [
-                'email' => $request->email,
-                'errors' => $e->errors(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors(),
-            ], 422);
+            ], 'Inicio de sesión exitoso');
         } catch (\Exception $e) {
-            Log::error('Error inesperado en login', [
-                'email' => $request->email,
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error al iniciar sesión',
-            ], 500);
+            return $this->handleException($e, $request, 'login');
         }
     }
 
@@ -138,19 +98,9 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'Sesión cerrada con éxito',
-            ], 200);
+            return $this->successResponse([], 'Sesión cerrada con éxito');
         } catch (\Exception $e) {
-            Log::error('Error al cerrar sesión', [
-                'email' => $request->user()->email,
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error al cerrar sesión',
-            ], 500);
+            return $this->handleException($e, $request, 'logout');
         }
     }
 
@@ -164,19 +114,11 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'Usuario obtenido con éxito',
+            return $this->successResponse([
                 'user' => $user,
-            ], 200);
+            ], 'Usuario obtenido con éxito');
         } catch (\Exception $e) {
-            Log::error('Error al obtener usuario', [
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error al obtener el usuario',
-            ], 500);
+            return $this->handleException($e, $request, 'obtención de usuario');
         }
     }
 
@@ -195,9 +137,7 @@ class AuthController extends Controller
                     'ip' => $request->ip(),
                 ]);
 
-                return response()->json([
-                    'message' => 'Enlace de recuperación enviado al correo',
-                ], 200);
+                return $this->successResponse([], 'Enlace de recuperación enviado al correo');
             }
 
             Log::warning('Error al enviar enlace de recuperación', [
@@ -205,30 +145,9 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
             ]);
 
-            return response()->json([
-                'message' => 'No se pudo enviar el enlace de recuperación',
-            ], 400);
-        } catch (ValidationException $e) {
-            Log::warning('Error de validación en recuperación de contraseña', [
-                'email' => $request->email,
-                'errors' => $e->errors(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors(),
-            ], 422);
+            return $this->errorResponse('No se pudo enviar el enlace de recuperación', 400);
         } catch (\Exception $e) {
-            Log::error('Error inesperado en recuperación de contraseña', [
-                'email' => $request->email,
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'message' => 'Error al procesar la solicitud',
-            ], 500);
+            return $this->handleException($e, $request, 'recuperación de contraseña');
         }
     }
 
@@ -258,9 +177,7 @@ class AuthController extends Controller
                     'email' => $validated['email'],
                     'ip' => $request->ip(),
                 ]);
-                return response()->json([
-                    'message' => 'Contraseña restablecida con éxito',
-                ], 200);
+                return $this->successResponse([], 'Contraseña restablecida con éxito');
             }
 
             Log::warning('Error al restablecer la contraseña', [
@@ -268,30 +185,9 @@ class AuthController extends Controller
                 'status' => $status,
                 'ip' => $request->ip(),
             ]);
-            return response()->json([
-                'message' => 'No se pudo restablecer la contraseña',
-            ], 400);
-        } catch (ValidationException $e) {
-            Log::warning('Error de validación en restablecimiento de contraseña', [
-                'email' => $request->email,
-                'errors' => $e->errors(),
-                'ip' => $request->ip(),
-            ]);
-            return response()->json([
-                'message' => 'Error de validación',
-                'errors' => $e->errors(),
-            ], 422);
+            return $this->errorResponse('No se pudo restablecer la contraseña', 400);
         } catch (\Exception $e) {
-            Log::error('Error inesperado en restablecimiento de contraseña', [
-                'email' => $request->email,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'ip' => $request->ip(),
-            ]);
-            return response()->json([
-                'message' => 'Error al procesar la solicitud',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->handleException($e, $request, 'restablecimiento de contraseña');
         }
     }
 
@@ -307,9 +203,7 @@ class AuthController extends Controller
                     'token' => $token,
                     'ip' => $request->ip(),
                 ]);
-                return response()->json([
-                    'message' => 'Token inválido o expirado',
-                ], 400);
+                return $this->errorResponse('Token inválido o expirado', 400);
             }
 
             $createdAt = \Carbon\Carbon::parse($resetToken->created_at);
@@ -320,9 +214,7 @@ class AuthController extends Controller
                     'email' => $resetToken->email,
                     'ip' => $request->ip(),
                 ]);
-                return response()->json([
-                    'message' => 'Token expirado',
-                ], 400);
+                return $this->errorResponse('Token expirado', 400);
             }
 
             Log::info('Token de restablecimiento válido', [
@@ -330,19 +222,12 @@ class AuthController extends Controller
                 'email' => $resetToken->email,
                 'ip' => $request->ip(),
             ]);
-            return response()->json([
+            return $this->successResponse([
                 'email' => $resetToken->email,
                 'token' => $token,
-            ], 200);
+            ], 'Token válido');
         } catch (\Exception $e) {
-            Log::error('Error al validar el token de restablecimiento', [
-                'token' => $token,
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
-            return response()->json([
-                'message' => 'Error al procesar la solicitud',
-            ], 500);
+            return $this->handleException($e, $request, 'validación de token de restablecimiento');
         }
     }
 }
