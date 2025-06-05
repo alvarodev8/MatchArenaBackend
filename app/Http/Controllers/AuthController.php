@@ -115,7 +115,12 @@ class AuthController extends Controller
             ]);
 
             return $this->successResponse([
-                'user' => $user,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
             ], 'Usuario obtenido con éxito');
         } catch (\Exception $e) {
             return $this->handleException($e, $request, 'obtención de usuario');
