@@ -28,10 +28,12 @@ class PlayerController extends Controller
     {
         $user = Auth::user();
         return $this->successResponse([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
         ], 'Perfil obtenido con éxito');
     }
 
