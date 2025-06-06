@@ -10,14 +10,23 @@ class Reservation extends Model
     use HasFactory;
 
     protected $fillable = [
-        'player_id', 'pitch_id', 'start_at', 'status', 'duration', 'price',
-        'payment_status', 'payment_method', 'cancellation_reason', 'cancellation_date'
+        'player_id',
+        'pitch_id',
+        'start_at',
+        'status',
+        'duration',
+        'price',
+        'payment_status',
+        'payment_method',
+        'cancellation_reason',
+        'cancellation_date'
     ];
 
-    protected $casts = [
-        'date' => 'datetime',
+    protected $dates = [
+        'start_at',
+        'cancellation_date'
     ];
-    
+
     public function player()
     {
         return $this->belongsTo(User::class, 'player_id');
