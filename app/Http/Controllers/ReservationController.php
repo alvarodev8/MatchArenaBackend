@@ -5,14 +5,21 @@ namespace App\Http\Controllers;
 use App\Http\Traits\ApiResponser;
 use App\Models\Pitch;
 use App\Models\Reservation;
+use App\Services\ReservationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class ReservationController extends Controller
 {
     use ApiResponser;
+
+    protected $reservationService;
+
+    public function __construct(ReservationService $reservationService)
+    {
+        $this->reservationService = $reservationService;
+    }
 
     /**
      * Lista las reservas del jugador
@@ -49,56 +56,38 @@ class ReservationController extends Controller
      */
     public function store(Request $request)
     {
-        $user = Auth::user();
-
         try {
             $validated = $request->validate([
                 'pitch_id' => 'required|exists:pitches,id',
                 'start_at' => 'required|date|after:now',
-                'duration' => 'required|integer|min:30|max:120',
+                'duration' => 'required|integer|min:60|max:120',
             ]);
 
-            // Convertir start_at a un formato estándar (Y-m-d H:i:s)
-            $startAt = Carbon::parse($validated['start_at'])->format('Y-m-d H:i:s');
-            $validated['start_at'] = $startAt;
+            $startAt = Carbon::parse($validated['start_at']);
+            $availability = $this->reservationService->checkAvailability(
+                $validated['pitch_id'],
+                $startAt,
+                $validated['duration'],
+                $request
+            );
 
-            // Verificar si el horario está disponible
-            $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
-                ->where('start_at', '<', Carbon::parse($startAt)->addMinutes($validated['duration']))
-                ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt])
-                ->whereNull('cancellation_date')
-                ->first();
-
-            if ($existingReservation) {
-                $conflictStart = Carbon::parse($existingReservation->start_at)->format('d/m/Y H:i');
-                $conflictEnd = Carbon::parse($existingReservation->start_at)
-                    ->addMinutes($existingReservation->duration)
-                    ->format('d/m/Y H:i');
-
-                Log::warning('Intento de reserva fallido: horario ya reservado', [
-                    'user_id' => $user->id,
-                    'pitch_id' => $validated['pitch_id'],
-                    'start_at' => $validated['start_at'],
-                    'duration' => $validated['duration'],
-                    'conflict_start' => $conflictStart,
-                    'conflict_end' => $conflictEnd,
-                    'ip' => $request->ip(),
-                ]);
-
+            if (!$availability['available']) {
                 return $this->errorResponse(
-                    'El horario seleccionado ya está reservado.',
+                    'El horario seleccionado ya está reservado',
                     400,
-                    ['details' => "El campo está ocupado desde $conflictStart hasta $conflictEnd. Por favor, elige otro horario o campo."]
+                    ['details' => $availability['message'] ?? 'Horario no disponible']
                 );
+            } else if (isset($availability['message']) && !$availability['available']) {
+                return $this->errorResponse('Error al verificar disponibilidad', 500, ['details' => $availability['message']]);
             }
 
             $pitch = Pitch::findOrFail($validated['pitch_id']);
             $price = $pitch->price ?? 30.00;
 
             $reservation = Reservation::create([
-                'player_id' => $user->id,
+                'player_id' => auth()->id(),
                 'pitch_id' => $validated['pitch_id'],
-                'start_at' => $validated['start_at'],
+                'start_at' => $startAt->format('Y-m-d H:i:s'),
                 'duration' => $validated['duration'],
                 'price' => $price,
                 'status' => 'pending',
@@ -108,9 +97,9 @@ class ReservationController extends Controller
 
             Log::info('Reserva creada con éxito', [
                 'reservation_id' => $reservation->id,
-                'user_id' => $user->id,
+                'user_id' => auth()->id(),
                 'pitch_id' => $validated['pitch_id'],
-                'start_at' => $validated['start_at'],
+                'start_at' => $startAt->toDateTimeString(),
                 'duration' => $validated['duration'],
                 'ip' => $request->ip(),
             ]);
@@ -133,43 +122,37 @@ class ReservationController extends Controller
         }
     }
 
+    /**
+     * Verifica la disponibilidad de un horario.
+     */
     public function checkAvailability(Request $request)
     {
         try {
             $validated = $request->validate([
                 'pitch_id' => 'required|exists:pitches,id',
                 'start_at' => 'required|date|after:now',
-                'duration' => 'required|integer|min:30|max:120',
+                'duration' => 'required|integer|min:60|max:120',
             ]);
 
-            $startAt = Carbon::parse($validated['start_at'])->format('Y-m-d H:i:s');
-            $endAt = Carbon::parse($startAt)->addMinutes($validated['duration']);
+            $result = $this->reservationService->checkAvailability(
+                $validated['pitch_id'],
+                Carbon::parse($validated['start_at']),
+                $validated['duration'],
+                $request
+            );
 
-            $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
-                ->where(function ($query) use ($startAt, $endAt) {
-                    $query->where('start_at', '<', $endAt)
-                        ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
-                })
-                ->whereNull('cancellation_date')
-                ->first();
-
-            if ($existingReservation) {
-                $conflictStart = Carbon::parse($existingReservation->start_at)->format('d/m/Y H:i');
-                $conflictEnd = Carbon::parse($existingReservation->start_at)
-                    ->addMinutes($existingReservation->duration)
-                    ->format('d/m/Y H:i');
-                return $this->successResponse([
-                    'available' => false,
-                    'message' => "El campo está ocupado desde $conflictStart hasta $conflictEnd."
-                ], 'Horario no disponible');
-            }
-
-            return $this->successResponse(['available' => true], 'Horario disponible');
+            return $this->successResponse(
+                $result,
+                $result['available'] ? 'Horario disponible' : 'Horario no disponible'
+            );
         } catch (\Exception $e) {
             return $this->handleException($e, $request, 'verificación de disponibilidad');
         }
     }
 
+    /**
+     * Obtiene los horarios disponibles para un campo en una fecha.
+     */
     public function getAvailableTimes(Request $request)
     {
         try {
@@ -178,41 +161,11 @@ class ReservationController extends Controller
                 'date' => 'required|date',
             ]);
 
-            $date = Carbon::parse($validated['date'])->startOfDay();
-            $availableTimes = [];
-            $allTimes = [];
-            for ($hour = 8; $hour < 22; $hour++) {
-                $allTimes[] = sprintf("%02d:00", $hour);
-                $allTimes[] = sprintf("%02d:30", $hour);
-            }
-
-            $now = Carbon::now();
-            if ($date->isSameDay($now)) {
-                $currentHour = $now->hour;
-                $currentMinute = $now->minute;
-                $nextHalfHour = ceil($currentMinute / 30) * 30;
-                $startHour = $currentHour + ($nextHalfHour === 60 ? 1 : ($nextHalfHour === 0 ? 0 : 1));
-                $allTimes = array_filter($allTimes, function ($time) use ($startHour) {
-                    $hour = (int)explode(':', $time)[0];
-                    return $hour >= $startHour;
-                });
-            }
-
-            foreach ($allTimes as $time) {
-                $startAt = $date->copy()->setTimeFromTimeString($time);
-                $endAt = $startAt->copy()->addMinutes(30); // intervalos de 30 minutos para verificar
-                $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
-                    ->where(function ($query) use ($startAt, $endAt) {
-                        $query->where('start_at', '<', $endAt)
-                            ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
-                    })
-                    ->whereNull('cancellation_date')
-                    ->first();
-
-                if (!$existingReservation) {
-                    $availableTimes[] = $time;
-                }
-            }
+            $availableTimes = $this->reservationService->getAvailableTimes(
+                $validated['pitch_id'],
+                Carbon::parse($validated['date'])->startOfDay(),
+                $request
+            );
 
             return $this->successResponse(['availableTimes' => $availableTimes], 'Horarios disponibles obtenidos con éxito');
         } catch (\Exception $e) {
@@ -220,6 +173,9 @@ class ReservationController extends Controller
         }
     }
 
+    /**
+     * Obtiene las fechas disponibles para un campo en un rango.
+     */
     public function getAvailableDates(Request $request)
     {
         try {
@@ -229,45 +185,12 @@ class ReservationController extends Controller
                 'end_date' => 'required|date|after_or_equal:start_date',
             ]);
 
-            $startDate = Carbon::parse($validated['start_date'])->startOfDay();
-            $endDate = Carbon::parse($validated['end_date'])->endOfDay();
-            $now = Carbon::now();
-            $maxEndDate = $now->copy()->addDays(15)->endOfDay();
-
-            if ($endDate > $maxEndDate) {
-                $endDate = $maxEndDate;
-            }
-
-            $dates = [];
-            for ($date = $startDate; $date <= $endDate; $date->addDay()) {
-                $availableTimes = [];
-                $allTimes = [];
-                for ($hour = 8; $hour < 22; $hour++) {
-                    $allTimes[] = sprintf("%02d:00", $hour);
-                    $allTimes[] = sprintf("%02d:30", $hour);
-                }
-
-                foreach ($allTimes as $time) {
-                    $startAt = $date->copy()->setTimeFromTimeString($time);
-                    $endAt = $startAt->copy()->addMinutes(30); // intervalos de 30 minutos para verificar
-                    $existingReservation = Reservation::where('pitch_id', $validated['pitch_id'])
-                        ->where(function ($query) use ($startAt, $endAt) {
-                            $query->where('start_at', '<', $endAt)
-                                ->whereRaw('DATE_ADD(start_at, INTERVAL duration MINUTE) > ?', [$startAt]);
-                        })
-                        ->whereNull('cancellation_date')
-                        ->first();
-
-                    if (!$existingReservation) {
-                        $availableTimes[] = $time;
-                    }
-                }
-
-                $dates[] = [
-                    'date' => $date->format('Y-m-d'),
-                    'available' => !empty($availableTimes)
-                ];
-            }
+            $dates = $this->reservationService->getAvailableDates(
+                $validated['pitch_id'],
+                Carbon::parse($validated['start_date'])->startOfDay(),
+                Carbon::parse($validated['end_date'])->endOfDay(),
+                $request
+            );
 
             return $this->successResponse(['dates' => $dates], 'Fechas disponibles obtenidas con éxito');
         } catch (\Exception $e) {
