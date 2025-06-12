@@ -41,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/reservations/check', [ReservationController::class, 'checkAvailability']);
         Route::get('/reservations/available-times', [ReservationController::class, 'getAvailableTimes']);
         Route::get('/reservations/available-dates', [ReservationController::class, 'getAvailableDates']);
+        Route::post('/reservations/create-payment-intent', [ReservationController::class, 'createPaymentIntent']);
     });
 
     // Rutas para establecimientos
