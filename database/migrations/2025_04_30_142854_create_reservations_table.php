@@ -23,6 +23,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'confirmed', 'cancelled'])->default('pending');
             $table->enum('payment_status', ['pending', 'completed', 'failed'])->nullable();
             $table->string('payment_method')->nullable();
+            $table->string('stripe_payment_intent_id')->nullable()->unique();
             $table->text('cancellation_reason')->nullable();
             $table->dateTime('cancellation_date')->nullable();
             $table->timestamps();
