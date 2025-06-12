@@ -18,6 +18,7 @@ class Reservation extends Model
         'price',
         'payment_status',
         'payment_method',
+        'stripe_payment_intent_id',
         'cancellation_reason',
         'cancellation_date'
     ];
