@@ -8,7 +8,10 @@ use App\Models\Reservation;
 use App\Services\ReservationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Stripe\Stripe;
+use Stripe\PaymentIntent;
 
 class ReservationController extends Controller
 {
@@ -61,6 +64,7 @@ class ReservationController extends Controller
                 'pitch_id' => 'required|exists:pitches,id',
                 'start_at' => 'required|date|after:now',
                 'duration' => 'required|integer|min:60|max:120',
+                'stripe_payment_intent_id' => 'required|string', // Nuevo campo
             ]);
 
             $startAt = Carbon::parse($validated['start_at']);
@@ -84,16 +88,27 @@ class ReservationController extends Controller
             $pitch = Pitch::findOrFail($validated['pitch_id']);
             $price = $pitch->price ?? 30.00;
 
-            $reservation = Reservation::create([
-                'player_id' => auth()->id(),
-                'pitch_id' => $validated['pitch_id'],
-                'start_at' => $startAt->format('Y-m-d H:i:s'),
-                'duration' => $validated['duration'],
-                'price' => $price,
-                'status' => 'pending',
-                'payment_status' => 'pending',
-                'payment_method' => null,
-            ]);
+            // Verificar el Payment Intent
+            Stripe::setApiKey(config('services.stripe.secret'));
+            $paymentIntent = PaymentIntent::retrieve($validated['stripe_payment_intent_id']);
+
+            if ($paymentIntent->status !== 'succeeded') {
+                return $this->errorResponse('El pago no se ha completado', 400);
+            }
+
+            $reservation = DB::transaction(function () use ($validated, $startAt, $pitch, $price) {
+                return Reservation::create([
+                    'player_id' => auth()->id(),
+                    'pitch_id' => $validated['pitch_id'],
+                    'start_at' => $startAt->format('Y-m-d H:i:s'),
+                    'duration' => $validated['duration'],
+                    'price' => $price,
+                    'status' => 'confirmed',
+                    'payment_status' => 'completed',
+                    'payment_method' => 'card',
+                    'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'],
+                ]);
+            });
 
             Log::info('Reserva creada con éxito', [
                 'reservation_id' => $reservation->id,
@@ -101,6 +116,7 @@ class ReservationController extends Controller
                 'pitch_id' => $validated['pitch_id'],
                 'start_at' => $startAt->toDateTimeString(),
                 'duration' => $validated['duration'],
+                'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'],
                 'ip' => $request->ip(),
             ]);
 
@@ -110,6 +126,7 @@ class ReservationController extends Controller
                     'start_at' => $reservation->start_at,
                     'duration' => $reservation->duration,
                     'price' => $reservation->price,
+                    'stripe_payment_intent_id' => $reservation->stripe_payment_intent_id,
                     'pitch' => [
                         'id' => $pitch->id,
                         'name' => $pitch->name,
@@ -195,6 +212,52 @@ class ReservationController extends Controller
             return $this->successResponse(['dates' => $dates], 'Fechas disponibles obtenidas con éxito');
         } catch (\Exception $e) {
             return $this->handleException($e, $request, 'obtención de fechas disponibles');
+        }
+    }
+
+    public function createPaymentIntent(Request $request)
+    {
+        Log::info('Solicitud recibida', $request->all());
+
+        try {
+            $validated = $request->validate([
+                'pitch_id' => 'required|exists:pitches,id',
+                'start_at' => 'required|date|after:now',
+                'duration' => 'required|integer|min:60|max:120',
+            ]);
+
+            $pitch = Pitch::findOrFail($validated['pitch_id']);
+            $price = $pitch->price ?? 30.00;
+
+            // Configurar Stripe
+            Stripe::setApiKey(config('services.stripe.secret'));
+
+            // Crear Payment Intent
+            $paymentIntent = PaymentIntent::create([
+                'amount' => $price * 100, // Stripe usa centavos
+                'currency' => 'eur',
+                'payment_method_types' => ['card'],
+                'metadata' => [
+                    'pitch_id' => $validated['pitch_id'],
+                    'player_id' => auth()->id(),
+                    'start_at' => $validated['start_at'],
+                    'duration' => $validated['duration'],
+                ],
+            ]);
+
+            Log::info('Payment Intent creado', [
+                'payment_intent_id' => $paymentIntent->id,
+                'user_id' => auth()->id(),
+                'pitch_id' => $validated['pitch_id'],
+                'amount' => $price,
+            ]);
+
+            return $this->successResponse([
+                'client_secret' => $paymentIntent->client_secret,
+            ], 'Payment Intent creado con éxito');
+        } catch (\Exception $e) {
+            Log::error('Error al crear Payment Intent', ['error' => $e->getMessage()]);
+            return $this->errorResponse('Error al crear el intento de pago', 500);
         }
     }
 }
