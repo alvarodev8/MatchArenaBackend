@@ -15,9 +15,12 @@ return new class extends Migration
     {
         Schema::create('pitches', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('establishment_id')->constrained('users')->onDelete('cascade');
             $table->string('name');
             $table->string('location');
-            $table->foreignId('establishment_id')->constrained('users')->onDelete('cascade');
+            $table->decimal('price', 8, 2);
+            $table->text('description')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
     }

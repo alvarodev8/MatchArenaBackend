@@ -58,6 +58,6 @@ class PlayerController extends Controller
      */
     public function getPitches(Request $request)
     {
-        return $this->pitchController->index($request);
+        return $this->pitchController->availablePitches($request);
     }
 }

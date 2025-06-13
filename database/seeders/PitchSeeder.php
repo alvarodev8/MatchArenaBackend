@@ -16,6 +16,8 @@ class PitchSeeder extends Seeder
             Pitch::create([
                 'name' => 'Main Pitch',
                 'location' => '123 Sports Ave',
+                'price' => 15,
+                'description' => 'The main pitch for all major events.',
                 'establishment_id' => $establishment->id,
             ]);
         }

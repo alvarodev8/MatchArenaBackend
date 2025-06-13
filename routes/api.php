@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\PitchController;
+use App\Http\Controllers\EstablishmentController;
 use App\Http\Controllers\ReservationController;
 
 /*
@@ -46,7 +46,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Rutas para establecimientos
     Route::prefix('establishment')->middleware('role:establishment')->group(function () {
-        Route::get('/pitches', [PitchController::class, 'index']);
+        Route::get('/pitches', [EstablishmentController::class, 'getPitches']);
+        Route::get('/pitches/{id}', [EstablishmentController::class, 'showPitch']);
+        Route::post('/pitches', [EstablishmentController::class, 'createPitch']);
+        Route::put('/pitches/{id}', [EstablishmentController::class, 'updatePitch']);
+        Route::delete('/pitches/{id}', [EstablishmentController::class, 'deletePitch']);
     });
 
     // Rutas para administradores
