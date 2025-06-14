@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Reservation extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'player_id',
@@ -25,7 +26,8 @@ class Reservation extends Model
 
     protected $dates = [
         'start_at',
-        'cancellation_date'
+        'cancellation_date',
+        'deleted_at'
     ];
 
     public function player()
