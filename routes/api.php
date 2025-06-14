@@ -51,6 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/pitches', [EstablishmentController::class, 'createPitch']);
         Route::put('/pitches/{id}', [EstablishmentController::class, 'updatePitch']);
         Route::delete('/pitches/{id}', [EstablishmentController::class, 'deletePitch']);
+        Route::get('/reservations', [EstablishmentController::class, 'getReservations']);
+        Route::delete('/reservations/{id}', [EstablishmentController::class, 'cancelReservation']);
     });
 
     // Rutas para administradores
