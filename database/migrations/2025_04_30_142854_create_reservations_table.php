@@ -26,6 +26,7 @@ return new class extends Migration
             $table->string('stripe_payment_intent_id')->nullable()->unique();
             $table->text('cancellation_reason')->nullable();
             $table->dateTime('cancellation_date')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
     }
