@@ -38,8 +38,10 @@ class ReservationController extends Controller
                         'id' => $reservation->id,
                         'start_at' => $reservation->start_at,
                         'duration' => $reservation->duration,
-                        'cancelled_at' => $reservation->cancellation_date,
-                        'is_cancelled' => $reservation->cancellation_date !== null,
+                        'price' => $reservation->price,
+                        'status' => $reservation->status,
+                        'cancellation_reason' => $reservation->cancellation_reason,
+                        'cancellation_date' => $reservation->cancellation_date,
                         'pitch' => [
                             'id' => $reservation->pitch->id,
                             'name' => $reservation->pitch->name,
@@ -47,6 +49,11 @@ class ReservationController extends Controller
                         ],
                     ];
                 });
+
+            Log::info('Reservas obtenidas por jugador', [
+                'user_id' => auth()->id(),
+                'ip' => $request->ip(),
+            ]);
 
             return $this->successResponse(['reservations' => $reservations], 'Reservas obtenidas con éxito');
         } catch (\Exception $e) {
@@ -64,7 +71,7 @@ class ReservationController extends Controller
                 'pitch_id' => 'required|exists:pitches,id',
                 'start_at' => 'required|date|after:now',
                 'duration' => 'required|integer|min:60|max:120',
-                'stripe_payment_intent_id' => 'required|string', // Nuevo campo
+                'stripe_payment_intent_id' => 'required|string',
             ]);
 
             $startAt = Carbon::parse($validated['start_at']);
@@ -126,6 +133,7 @@ class ReservationController extends Controller
                     'start_at' => $reservation->start_at,
                     'duration' => $reservation->duration,
                     'price' => $reservation->price,
+                    'status' => $reservation->status,
                     'stripe_payment_intent_id' => $reservation->stripe_payment_intent_id,
                     'pitch' => [
                         'id' => $pitch->id,
@@ -215,9 +223,12 @@ class ReservationController extends Controller
         }
     }
 
+    /**
+     * Crea un intento de pago con Stripe para una reserva.
+     */
     public function createPaymentIntent(Request $request)
     {
-        Log::info('Solicitud recibida', $request->all());
+        Log::info('Solicitud de creación de Payment Intent recibida', $request->all());
 
         try {
             $validated = $request->validate([
@@ -245,18 +256,22 @@ class ReservationController extends Controller
                 ],
             ]);
 
-            Log::info('Payment Intent creado', [
+            Log::info('Payment Intent creado con éxito', [
                 'payment_intent_id' => $paymentIntent->id,
                 'user_id' => auth()->id(),
                 'pitch_id' => $validated['pitch_id'],
                 'amount' => $price,
+                'ip' => $request->ip(),
             ]);
 
             return $this->successResponse([
                 'client_secret' => $paymentIntent->client_secret,
             ], 'Payment Intent creado con éxito');
         } catch (\Exception $e) {
-            Log::error('Error al crear Payment Intent', ['error' => $e->getMessage()]);
+            Log::error('Error al crear Payment Intent', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+            ]);
             return $this->errorResponse('Error al crear el intento de pago', 500);
         }
     }
