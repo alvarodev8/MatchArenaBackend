@@ -24,4 +24,9 @@ class Pitch extends Model
     {
         return $this->belongsTo(User::class, 'establishment_id');
     }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class, 'pitch_id');
+    }
 }
