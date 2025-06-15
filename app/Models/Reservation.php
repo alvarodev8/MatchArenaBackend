@@ -30,6 +30,14 @@ class Reservation extends Model
         'deleted_at'
     ];
 
+    protected $attributes = [
+        'payment_status' => 'pending',
+    ];
+
+    protected $casts = [
+        'payment_status' => 'string',
+    ];
+
     public function player()
     {
         return $this->belongsTo(User::class, 'player_id');
