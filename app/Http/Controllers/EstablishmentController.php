@@ -10,6 +10,9 @@ use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Stripe\Refund;
+use Stripe\Stripe;
+use Stripe\Exception\ApiErrorException;
 
 class EstablishmentController extends Controller
 {
@@ -120,28 +123,50 @@ class EstablishmentController extends Controller
                 $query->where('establishment_id', Auth::id());
             })->findOrFail($id);
 
+            if (!is_null($reservation->deleted_at)) {
+                return $this->errorResponse('La reserva ya está eliminada', 400);
+            }
+
             if ($reservation->status === 'cancelled') {
                 return $this->errorResponse('La reserva ya está cancelada', 400);
             }
 
+            if (is_null($reservation->stripe_payment_intent_id)) {
+                return $this->errorResponse('No hay información de pago para reembolsar', 400);
+            }
+
             DB::transaction(function () use ($reservation, $validated) {
+                Stripe::setApiKey(config('services.stripe.secret'));
+
+                try {
+                    Refund::create([
+                        'payment_intent' => $reservation->stripe_payment_intent_id,
+                        'amount' => (int) ($reservation->price * 100), // Convertir a centavos
+                        'reason' => 'requested_by_customer',
+                    ]);
+                } catch (ApiErrorException $e) {
+                    throw new \Exception('Error al procesar el reembolso: ' . $e->getMessage());
+                }
+
                 $reservation->update([
                     'status' => 'cancelled',
                     'cancellation_reason' => $validated['cancellation_reason'],
                     'cancellation_date' => Carbon::now(),
+                    'payment_status' => 'refunded',
                 ]);
             });
 
-            Log::info('Reserva cancelada por establecimiento', [
+            Log::info('Reserva cancelada y reembolsada por establecimiento', [
                 'reservation_id' => $reservation->id,
                 'user_id' => Auth::id(),
                 'reason' => $validated['cancellation_reason'],
+                'stripe_payment_intent_id' => $reservation->stripe_payment_intent_id,
                 'ip' => $request->ip(),
             ]);
 
-            return $this->successResponse([], 'Reserva cancelada con éxito');
+            return $this->successResponse([], 'Reserva cancelada y reembolsada con éxito');
         } catch (\Exception $e) {
-            return $this->handleException($e, $request, 'cancelación de reserva');
+            return $this->handleException($e, $request, 'cancelación y reembolso de reserva');
         }
     }
 }

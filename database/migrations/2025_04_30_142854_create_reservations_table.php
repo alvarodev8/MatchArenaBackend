@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('duration');
             $table->decimal('price', 8, 2);
             $table->enum('status', ['pending', 'confirmed', 'cancelled'])->default('pending');
-            $table->enum('payment_status', ['pending', 'completed', 'failed'])->nullable();
+            $table->enum('payment_status', ['pending', 'completed', 'failed', 'refunded'])->nullable();
             $table->string('payment_method')->nullable();
             $table->string('stripe_payment_intent_id')->nullable()->unique();
             $table->text('cancellation_reason')->nullable();
