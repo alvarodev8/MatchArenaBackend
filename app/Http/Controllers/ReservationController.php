@@ -93,7 +93,7 @@ class ReservationController extends Controller
             }
 
             $pitch = Pitch::findOrFail($validated['pitch_id']);
-            $price = $pitch->price ?? 30.00;
+            $price = $pitch->price * $validated['duration'] / 60 ?? 30.00;
 
             // Verificar el Payment Intent
             Stripe::setApiKey(config('services.stripe.secret'));
@@ -238,7 +238,7 @@ class ReservationController extends Controller
             ]);
 
             $pitch = Pitch::findOrFail($validated['pitch_id']);
-            $price = $pitch->price ?? 30.00;
+            $price = $pitch->price * $validated['duration'] / 60 ?? 30.00;
 
             // Configurar Stripe
             Stripe::setApiKey(config('services.stripe.secret'));
