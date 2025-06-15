@@ -60,6 +60,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Rutas para administradores
     Route::prefix('admin')->middleware('role:admin')->group(function () {
         Route::get('/users', [AdminController::class, 'users']);
+        Route::post('/users', [AdminController::class, 'createUser']);
+        Route::get('/users/{id}', [AdminController::class, 'showUser']);
+        Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+        Route::delete('/users/{id}', [AdminController::class, 'deleteUser']);
+        Route::get('/users/{id}/reservations', [AdminController::class, 'getUserReservations']);
+        Route::delete('/users/{userId}/reservations/{reservationId}', [AdminController::class, 'cancelReservation']);
     });
 });
 
